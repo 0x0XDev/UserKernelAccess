@@ -1,9 +1,9 @@
 //
 //  tfp0_Patch.h
-//  SysPlus
+//  UserKernelAccess
 //
-//  Created by Leonardos Jr. on 18.04.20.
-//  Copyright © 2020 Leonardos Jr. All rights reserved.
+//
+//  Copyright © 2020 Anonymouz4. All rights reserved.
 //
 
 #ifndef tfp0_Patch_h
