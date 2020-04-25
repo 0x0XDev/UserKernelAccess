@@ -43,6 +43,7 @@ bool setKernelMap(bool set) {
 	static void (*_ipc_kobject_set)(ipc_port_t port, ipc_kobject_t kobject, ipc_kobject_type_t type) = 0;
 	static ipc_port_t (*_ipc_port_alloc_special)(ipc_space_t space) = 0;
 	static ipc_port_t (*_ipc_port_make_send)(ipc_port_t port) = 0;
+	vm_map_t *_zone_map = 0;
 	
 	host_priv_t host = host_priv_self();
     if(!host) return false;
@@ -56,9 +57,14 @@ bool setKernelMap(bool set) {
 	if (_ipc_port_alloc_special == NULL && !(_ipc_port_alloc_special = (void*)getSymbolAddr("ipc_port_alloc_special"))) return false;
 	if (_ipc_kobject_set == NULL && !(_ipc_kobject_set = (void*)getSymbolAddr("ipc_kobject_set"))) return false;
 	if (_ipc_port_make_send == NULL && !(_ipc_port_make_send = (void*)getSymbolAddr("ipc_port_make_send"))) return false;
+	if (_zone_map == NULL && !(_zone_map = (void*)getSymbolAddr("zone_map"))) return false;
 	
-	// TODO: Set correct Port
-	host->special[4] = kernel_map;
+    // TODO: Set correct Port
+	ipc_port_t port = _ipc_port_alloc_special(ipc_space_kernel);
+    LOG_PTR("port", port);
+    if(!port) return false;
+    _ipc_kobject_set(port, (ipc_kobject_t)zone_map, IKOT_TASK);
+    host->special[4] = _ipc_port_make_send(port);
 	
 	return true;
 }
