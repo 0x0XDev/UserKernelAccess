@@ -11,7 +11,7 @@
 #include "RuntimeSymPatch.h"
 #include <mach/task.h>
 
-bool setKernelMap(bool set);
+bool setKernelTask(bool set);
 bool patchNonInline(bool patch, bool firstMethod);
 bool patchInline1(bool patch);
 bool patchInline2(bool patch);
@@ -19,14 +19,14 @@ bool patchInline3(bool patch);
 bool patch_zone_require(bool patch);
 
 bool allowTFP0() {
-	return setKernelMap(true) & patch_zone_require(true) & patchInline1(true) & patchInline2(true) & patchInline3(true) & patchNonInline(true,true); //NonInline won't get called anyways
+	return setKernelTask(true) & patch_zone_require(true) & patchInline1(true) & patchInline2(true) & patchInline3(true) & patchNonInline(true,true); //NonInline won't get called anyways
 }
 bool denyTFP0() {
-	return setKernelMap(false) & patch_zone_require(false) & patchInline1(false) & patchInline2(false) & patchInline3(false) & patchNonInline(false,true); //NonInline won't get called anyways
+	return setKernelTask(false) & patch_zone_require(false) & patchInline1(false) & patchInline2(false) & patchInline3(false) & patchNonInline(false,true); //NonInline won't get called anyways
 }
 
 
-#pragma mark - Set kernel_map for host->special[4]
+#pragma mark - Set kernel_task for host->special[4]
 
 #include <kern/host.h>          // host_priv_self
 #include <kern/task.h>          // kernel_task
@@ -37,7 +37,7 @@ struct host {
 #define IKOT_NONE 0
 #define IKOT_TASK 2
 
-bool setKernelMap(bool set) {
+bool setKernelTask(bool set) {
 
 	typedef vm_offset_t ipc_kobject_t;
 	typedef natural_t   ipc_kobject_type_t;
@@ -57,10 +57,7 @@ bool setKernelMap(bool set) {
 	ipc_port_t oldport = host->special[4];
     if(set && oldport) LOG("realhost.special[4] exists already!");
 	if(!set) {
-		if(!oldport) {
-			LOG("realhost.special[4] doesn't exist...");
-			return KERN_SUCCESS;
-		}
+		if(!oldport) { LOG("realhost.special[4] doesn't exist..."); return true; }
 		host->special[4] = 0;
 		_ipc_kobject_set(oldport, IKOT_NONE, 0);
 		_ipc_port_dealloc_special(oldport, ipc_space_kernel);
@@ -68,7 +65,6 @@ bool setKernelMap(bool set) {
 	}
 	
 	ipc_port_t port = _ipc_port_alloc_special(ipc_space_kernel);
-    LOG_PTR("port", port);
     if(!port) return false;
     _ipc_kobject_set(port, (ipc_kobject_t)kernel_task, IKOT_TASK);
     host->special[4] = _ipc_port_make_send(port);
@@ -134,7 +130,7 @@ bool patchNonInline(bool patch, bool firstMethod) {
 	else if (check == replacement) isPatched = true;	//already patched
 	else return false;									//codebase changed, err
 
-	if (patch == isPatched) return true;
+	if (patch == isPatched) return true;				//nothing to do here
 	
 
 	//Patch
@@ -335,6 +331,7 @@ bool patch_zone_require(bool patch) {
 	
 	return true;
 }
+
 
 
 
