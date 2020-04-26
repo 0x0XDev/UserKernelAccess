@@ -22,13 +22,14 @@ bool allowTFP0() {
 	return setKernelMap(true) & patch_zone_require(true) & patchInline1(true) & patchInline2(true) & patchInline3(true) & patchNonInline(true,true); //NonInline won't get called anyways
 }
 bool denyTFP0() {
-	return setKernelMap(true) & patch_zone_require(false) & patchInline1(false) & patchInline2(false) & patchInline3(false) & patchNonInline(false,true); //NonInline won't get called anyways
+	return setKernelMap(false) & patch_zone_require(false) & patchInline1(false) & patchInline2(false) & patchInline3(false) & patchNonInline(false,true); //NonInline won't get called anyways
 }
 
 
 #pragma mark - Set kernel_map for host->special[4]
 
 #include <kern/host.h>          // host_priv_self
+#include <kern/task.h>          // kernel_task
 struct host {
     char _[0x10];
     ipc_port_t special[8];
@@ -42,32 +43,39 @@ bool setKernelMap(bool set) {
 	typedef natural_t   ipc_kobject_type_t;
 	static void (*_ipc_kobject_set)(ipc_port_t port, ipc_kobject_t kobject, ipc_kobject_type_t type) = 0;
 	static ipc_port_t (*_ipc_port_alloc_special)(ipc_space_t space) = 0;
+	static void (*_ipc_port_dealloc_special)(ipc_port_t port, ipc_space_t space) = 0;
 	static ipc_port_t (*_ipc_port_make_send)(ipc_port_t port) = 0;
-	vm_map_t *_zone_map = 0;
+	
+	if (_ipc_kobject_set == NULL && !(_ipc_kobject_set = (void*)getSymbolAddr("ipc_kobject_set"))) return false;
+	if (_ipc_port_alloc_special == NULL && !(_ipc_port_alloc_special = (void*)getSymbolAddr("ipc_port_alloc_special"))) return false;
+	if (_ipc_port_dealloc_special == NULL && !(_ipc_port_dealloc_special = (void*)getSymbolAddr("ipc_port_dealloc_special"))) return false;
+	if (_ipc_port_make_send == NULL && !(_ipc_port_make_send = (void*)getSymbolAddr("ipc_port_make_send"))) return false;
 	
 	host_priv_t host = host_priv_self();
     if(!host) return false;
 	
-    if(set && host->special[4]) LOG("realhost.special[4] exists already!");
+	ipc_port_t oldport = host->special[4];
+    if(set && oldport) LOG("realhost.special[4] exists already!");
 	if(!set) {
+		if(!oldport) {
+			LOG("realhost.special[4] doesn't exist...");
+			return KERN_SUCCESS;
+		}
 		host->special[4] = 0;
+		_ipc_kobject_set(oldport, IKOT_NONE, 0);
+		_ipc_port_dealloc_special(oldport, ipc_space_kernel);
 		return true;
 	}
 	
-	if (_ipc_port_alloc_special == NULL && !(_ipc_port_alloc_special = (void*)getSymbolAddr("ipc_port_alloc_special"))) return false;
-	if (_ipc_kobject_set == NULL && !(_ipc_kobject_set = (void*)getSymbolAddr("ipc_kobject_set"))) return false;
-	if (_ipc_port_make_send == NULL && !(_ipc_port_make_send = (void*)getSymbolAddr("ipc_port_make_send"))) return false;
-	if (_zone_map == NULL && !(_zone_map = (void*)getSymbolAddr("zone_map"))) return false;
-	
-    // TODO: Set correct Port
 	ipc_port_t port = _ipc_port_alloc_special(ipc_space_kernel);
     LOG_PTR("port", port);
     if(!port) return false;
-    _ipc_kobject_set(port, (ipc_kobject_t)zone_map, IKOT_TASK);
+    _ipc_kobject_set(port, (ipc_kobject_t)kernel_task, IKOT_TASK);
     host->special[4] = _ipc_port_make_send(port);
 	
 	return true;
 }
+
 
 
 

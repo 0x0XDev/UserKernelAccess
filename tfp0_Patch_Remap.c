@@ -51,10 +51,9 @@ struct host {
 
 typedef vm_offset_t ipc_kobject_t;
 typedef natural_t   ipc_kobject_type_t;
-typedef void        *vm_map_copy_t;
+typedef void*		vm_map_copy_t;
 
 static vm_size_t		sizeof_task = 0;
-vm_map_t				*_zone_map = 0;
 static kern_return_t	(*_mach_zone_info)(host_priv_t host, mach_zone_name_array_t *names, mach_msg_type_number_t *namesCnt, mach_zone_info_array_t *info, mach_msg_type_number_t *infoCnt) = 0;
 static kern_return_t	(*_vm_map_copyout)(vm_map_t dst_map, vm_map_address_t *dst_addr, vm_map_copy_t copy) = 0;
 static kern_return_t	(*_mach_vm_deallocate)(vm_map_t map, vm_offset_t start, vm_size_t size) = 0;
@@ -77,7 +76,6 @@ kern_return_t remapKernTask() {
 		return KERN_NO_SPACE;
     }
 	
-    SYM(zone_map);
     SYM(mach_zone_info);
     SYM(vm_map_copyout);
     SYM(mach_vm_deallocate);
